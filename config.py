@@ -3,6 +3,10 @@
 # ================================================================================
 
 import os
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde .env
+load_dotenv()
 
 # --- API KEY DE GROQ ---
 # Se lee desde el archivo .env (nunca se sube a GitHub)
