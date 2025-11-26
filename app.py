@@ -6,6 +6,8 @@ from flask import Flask, jsonify, request, render_template_string
 from config import DATA_STORE
 from chatbot import bot
 from templates import HTML_TEMPLATE
+import threading
+from telegram_bot import start_telegram_bot
 
 app = Flask(__name__)
 app.secret_key = 'newsbot-2024-secret'
@@ -20,7 +22,7 @@ def home():
     """Página principal"""
     return render_template_string(
         HTML_TEMPLATE,
-        headlines=DATA_STORE.get('titulares', [])[:20],
+        headlines=DATA_STORE.get('titulares', [])[:20 ],
         total=len(DATA_STORE.get('titulares', [])),
         groq_enabled=bot.brain.enabled if bot.brain else False,
         groq_available=bot.brain.client is not None if bot.brain else False,
@@ -57,6 +59,7 @@ def status():
         'initialized': bot.initialized,
         'initializing': bot.initializing,
         'news_count': len(DATA_STORE.get('titulares', [])),
+        'news_analyzed': DATA_STORE.get('noticias_analizadas', 0),
         'current_action': DATA_STORE.get('current_action', 'Iniciando...'),
         'progress': DATA_STORE.get('progress', 0),
         'groq_enabled': bot.brain.enabled if bot.brain else False,
@@ -136,7 +139,10 @@ if __name__ == '__main__':
     print("   Las noticias se cargarán mientras usas el chat.\n")
     
     bot.initialize_async()
-    
+    # Iniciar bot de Telegram como proceso independiente
+    import subprocess, sys
+    subprocess.Popen([sys.executable, "telegram_bot.py"])
+
     print("=" * 60)
     print("🌐 SERVIDOR INICIADO")
     print("=" * 60)

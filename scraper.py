@@ -174,8 +174,8 @@ def extraer_todas_las_noticias() -> List[Dict]:
                 
                 # Actualizar progreso
                 paginas_procesadas += 1
-                # El scraping es el 80% del proceso total
-                progreso_actual = int((paginas_procesadas / total_paginas) * 80)
+                # El scraping es el 45% del proceso total
+                progreso_actual = int((paginas_procesadas / total_paginas) * 45)
                 DATA_STORE['progress'] = progreso_actual
     
     duration = time.time() - start_time

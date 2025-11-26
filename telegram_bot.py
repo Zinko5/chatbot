@@ -52,11 +52,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     await update.message.reply_text(response, parse_mode='Markdown')
 
-if __name__ == '__main__':
+def start_telegram_bot():
+    """Inicializa y ejecuta el bot de Telegram en modo polling.
+    Esta función está diseñada para ser llamada desde otro proceso/thread.
+    """
     if not TELEGRAM_BOT_TOKEN:
         print("❌ Error: No se ha configurado el TELEGRAM_BOT_TOKEN en .env")
-        exit(1)
-        
+        return
+    
     print("🚀 Iniciando Bot de Telegram...")
     
     # Inicializar el cerebro del bot
@@ -74,3 +77,6 @@ if __name__ == '__main__':
     
     print("✅ Bot de Telegram escuchando...")
     application.run_polling()
+
+if __name__ == '__main__':
+    start_telegram_bot()

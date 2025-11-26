@@ -96,10 +96,12 @@ HTML_TEMPLATE = r"""
         .progress-container {
             background: rgba(255, 255, 255, 0.1);
             height: 6px;
-            width: 100%;
+            width: 350px;
+            max-width: 100%;
             border-radius: 3px;
             overflow: hidden;
             position: relative;
+            margin: 0 auto;
         }
 
         .progress-bar {
@@ -114,7 +116,28 @@ HTML_TEMPLATE = r"""
             margin-top: 15px;
             font-family: monospace;
             color: var(--success);
-            font-size: 1.1rem;
+            font-size: 0.95rem;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            align-items: center;
+        }
+        
+        .counter-item {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .counter-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        
+        .counter-value {
+            color: var(--success);
+            font-weight: 600;
+            font-size: 1rem;
         }
 
         /* --- MAIN LAYOUT --- */
@@ -431,7 +454,14 @@ HTML_TEMPLATE = r"""
             </div>
             
             <div class="news-counter">
-                <span id="loadingCount">{{ total }}</span> noticias procesadas
+                <div class="counter-item">
+                    <span class="counter-label">📖 Leídas:</span>
+                    <span class="counter-value" id="newsReadCount">{{ total }}</span>
+                </div>
+                <div class="counter-item">
+                    <span class="counter-label">🎭 Analizadas:</span>
+                    <span class="counter-value" id="newsAnalyzedCount">0</span>
+                </div>
             </div>
         </div>
     </div>
@@ -483,6 +513,9 @@ HTML_TEMPLATE = r"""
                         <button class="news-item" onclick="askAbout('economía boliviana')" style="text-align:left; width:100%;">💰 ¿Cómo va la economía?</button>
                         <button class="news-item" onclick="askAbout('política actual')" style="text-align:left; width:100%;">🏛️ Resumen político</button>
                         <button class="news-item" onclick="askAbout('deportes')" style="text-align:left; width:100%;">⚽ Deportes destacados</button>
+                        <button class="news-item" onclick="askAbout('noticias positivas')" style="text-align:left; width:100%;">😊 Noticias positivas</button>
+                        <button class="news-item" onclick="askAbout('noticias negativas')" style="text-align:left; width:100%;">😞 Noticias negativas</button>
+                        <button class="news-item" onclick="askAbout('noticias neutrales')" style="text-align:left; width:100%;">😐 Noticias neutrales</button>
                     </div>
                 </div>
             </div>
@@ -493,11 +526,12 @@ HTML_TEMPLATE = r"""
             <div class="messages-area" id="messages">
                 <div class="msg bot">
                     👋 <strong>¡Hola! Soy tu asistente de noticias.</strong><br><br>
-                    He leído y analizado <strong>{{ total }} noticias</strong> de El Deber para responder tus preguntas.<br><br>
+                    He leído y analizado <strong id="initialNewsCount">{{ total }} noticias</strong> de El Deber para responder tus preguntas.<br><br>
                     ✨ <em>Prueba preguntando:</em><br>
                     • "¿Qué pasó con el censo?"<br>
                     • "Noticias sobre economía"<br>
-                    • "¿Qué dijo el presidente?"
+                    • "¿Qué noticias positivas hay?"<br>
+                    • "Muéstrame noticias negativas"
                 </div>
             </div>
 
@@ -532,7 +566,8 @@ HTML_TEMPLATE = r"""
         // Elementos DOM
         const els = {
             overlay: document.getElementById('loadingOverlay'),
-            loadingCount: document.getElementById('loadingCount'),
+            newsReadCount: document.getElementById('newsReadCount'),
+            newsAnalyzedCount: document.getElementById('newsAnalyzedCount'),
             progressBar: document.getElementById('progressBar'),
             messages: document.getElementById('messages'),
             input: document.getElementById('questionInput'),
@@ -541,7 +576,8 @@ HTML_TEMPLATE = r"""
             groqText: document.getElementById('groqText'),
             totalNews: document.getElementById('totalNews'),
             newsList: document.getElementById('newsList'),
-            botStatusText: document.getElementById('botStatusText')
+            botStatusText: document.getElementById('botStatusText'),
+            initialNewsCount: document.getElementById('initialNewsCount')
         };
 
         // --- FUNCIONES DE CHAT ---
@@ -669,8 +705,9 @@ HTML_TEMPLATE = r"""
                 const res = await fetch('/api/status');
                 const data = await res.json();
 
-                // Actualizar contadores
-                els.loadingCount.textContent = data.news_count;
+                // Actualizar contadores separados
+                els.newsReadCount.textContent = data.news_count;
+                els.newsAnalyzedCount.textContent = data.news_analyzed || 0;
                 els.totalNews.textContent = data.news_count;
                 
                 // Actualizar texto de acción actual
@@ -695,6 +732,12 @@ HTML_TEMPLATE = r"""
                 // Manejar transición de carga
                 if (data.initialized && !initialized) {
                     initialized = true;
+                    
+                    // Actualizar contador final en el mensaje de bienvenida
+                    if (els.initialNewsCount) {
+                        els.initialNewsCount.textContent = `${data.news_count} noticias`;
+                    }
+                    
                     setTimeout(() => {
                         els.overlay.classList.add('hidden');
                     }, 800);
@@ -704,6 +747,12 @@ HTML_TEMPLATE = r"""
                 if (data.initialized && !uiRefreshed) {
                     uiRefreshed = true;
                     refreshHeadlines();
+                    
+                    // Actualizar contador final
+                    els.totalNews.textContent = data.news_count;
+                    if (els.initialNewsCount) {
+                        els.initialNewsCount.textContent = `${data.news_count} noticias`;
+                    }
                     
                     // Actualizar estado de Groq
                     groqEnabled = data.groq_enabled;
