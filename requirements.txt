@@ -39,3 +39,6 @@ idna==3.6
 
 # Opcional pero recomendado
 python-dotenv==1.0.0  # Para manejar variables de entorno
+
+# Telegram
+python-telegram-bot==20.7

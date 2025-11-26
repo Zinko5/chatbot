@@ -13,7 +13,12 @@ load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 if not GROQ_API_KEY:
-    raise ValueError("❌ No se encontró GROQ_API_KEY en el archivo .env")
+    print("⚠️ ADVERTENCIA: No se encontró GROQ_API_KEY en el archivo .env")
+
+# --- TELEGRAM TOKEN ---
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+if not TELEGRAM_BOT_TOKEN:
+    print("⚠️ ADVERTENCIA: No se encontró TELEGRAM_BOT_TOKEN en el archivo .env")
 
 # --- CONFIGURACIÓN DE SCRAPING ---
 # Configuración de secciones a rastrear

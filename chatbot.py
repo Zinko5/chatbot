@@ -85,7 +85,7 @@ class NewsChatBot:
         
         try:
             # 1. Buscar noticias relevantes
-            relevant = self.search_engine.search(question, top_k=5)
+            relevant = self.search_engine.search(question, top_k=3)
             
             if not relevant:
                 return ("🔍 No encontré noticias relacionadas con tu pregunta.\n\n"

@@ -41,7 +41,7 @@ class SemanticSearch:
         self.embeddings = self.model.encode(texts, show_progress_bar=True)
         print(f"✅ Embeddings listos\n")
     
-    def search(self, query: str, top_k: int = 5) -> List[Dict]:
+    def search(self, query: str, top_k: int = 3) -> List[Dict]:
         """Busca noticias similares (Híbrido: Semántico + Keyword Boosting)"""
         if self.embeddings is None or len(self.documents) == 0:
             return []

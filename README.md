@@ -1,4 +1,4 @@
-# NewsBot - Chatbot de noticias de El Deber (Bolivia)
+# El Deber Bot - Chatbot de noticias de El Deber (Bolivia)
 
 Proyecto universitario para crear un chatbot que responde preguntas sobre noticias recientes de [eldeber.com.bo](https://eldeber.com.bo), usando RAG + Groq (Llama3).
 
