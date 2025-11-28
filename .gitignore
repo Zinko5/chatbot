@@ -30,3 +30,7 @@ embeddings/
 # Sistema operativo
 .DS_Store
 Thumbs.db
+
+# diapositivas
+*.typ
+*.pdf
