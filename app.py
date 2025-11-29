@@ -2,12 +2,18 @@
 # app.py - SERVIDOR PRINCIPAL CON CONTROL GROQ (CORREGIDO)
 # ================================================================================
 
-from flask import Flask, jsonify, request, render_template_string
+from flask import Flask, jsonify, request, render_template_string, send_file
 from config import DATA_STORE
 from chatbot import bot
 from templates import HTML_TEMPLATE
 import threading
 from telegram_bot import start_telegram_bot
+from gtts import gTTS
+import speech_recognition as sr
+from pydub import AudioSegment
+import io
+import os
+import uuid
 
 app = Flask(__name__)
 app.secret_key = 'newsbot-2024-secret'
@@ -120,6 +126,77 @@ def refresh():
     """Recargar noticias"""
     bot.initialize_async()
     return jsonify({'status': 'ok', 'message': 'Recargando noticias...'})
+
+@app.route('/api/tts', methods=['POST'])
+def tts():
+    """Texto a voz"""
+    try:
+        data = request.get_json()
+        text = data.get('text', '')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+            
+        # Generar audio
+        tts = gTTS(text=text, lang='es')
+        
+        # Guardar en memoria
+        mp3_fp = io.BytesIO()
+        tts.write_to_fp(mp3_fp)
+        mp3_fp.seek(0)
+        
+        return send_file(
+            mp3_fp,
+            mimetype='audio/mp3',
+            as_attachment=False,
+            download_name='response.mp3'
+        )
+        
+    except Exception as e:
+        print(f"❌ Error en TTS: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/stt', methods=['POST'])
+def stt():
+    """Voz a texto"""
+    try:
+        if 'audio' not in request.files:
+            return jsonify({'error': 'No audio file provided'}), 400
+            
+        audio_file = request.files['audio']
+        
+        # Guardar temporalmente
+        filename = f"temp_{uuid.uuid4()}.webm" # Asumimos webm del navegador
+        audio_file.save(filename)
+        
+        # Convertir a WAV para SpeechRecognition
+        try:
+            sound = AudioSegment.from_file(filename)
+            wav_filename = filename.replace('.webm', '.wav')
+            sound.export(wav_filename, format="wav")
+            
+            # Reconocer
+            r = sr.Recognizer()
+            with sr.AudioFile(wav_filename) as source:
+                audio_data = r.record(source)
+                text = r.recognize_google(audio_data, language='es-ES')
+                
+            # Limpiar
+            os.remove(filename)
+            os.remove(wav_filename)
+            
+            return jsonify({'text': text})
+            
+        except Exception as e:
+            if os.path.exists(filename):
+                os.remove(filename)
+            if 'wav_filename' in locals() and os.path.exists(wav_filename):
+                os.remove(wav_filename)
+            raise e
+            
+    except Exception as e:
+        print(f"❌ Error en STT: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # ================================================================================
 # PUNTO DE ENTRADA

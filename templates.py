@@ -370,6 +370,39 @@ HTML_TEMPLATE = r"""
         #sendBtn:active { transform: scale(0.95); }
         #sendBtn svg { width: 24px; height: 24px; fill: currentColor; transform: translateX(2px); }
 
+        #micBtn {
+            width: 55px; height: 55px;
+            border-radius: 50%; border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+            border: 1px solid var(--glass-border);
+            flex-shrink: 0;
+        }
+        #micBtn:hover { background: rgba(255, 255, 255, 0.2); color: white; }
+        #micBtn.recording {
+            background: var(--secondary);
+            color: white;
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 0 15px var(--secondary);
+            border-color: var(--secondary);
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+        .tts-btn {
+            background: transparent; border: none;
+            color: var(--text-muted); cursor: pointer;
+            margin-top: 8px; padding: 5px;
+            transition: color 0.2s;
+            opacity: 0.6;
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 0.8rem;
+        }
+        .tts-btn:hover { color: var(--primary); opacity: 1; }
+
+
         /* --- RIGHT SIDEBAR (NEWS) --- */
         .news-list {
             list-style: none;
@@ -531,12 +564,18 @@ HTML_TEMPLATE = r"""
                     • "¿Qué pasó con el censo?"<br>
                     • "Noticias sobre economía"<br>
                     • "¿Qué noticias positivas hay?"<br>
-                    • "Muéstrame noticias negativas"
+                    • "Muéstrame noticias negativas"<br>
+                    <button class="tts-btn" onclick="const t = this.parentElement.innerText.replace('Escuchar','').replace('Detener','').trim(); speakText(t, this)">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg> Escuchar
+                    </button>
                 </div>
             </div>
 
             <div class="input-area">
                 <input type="text" id="questionInput" placeholder="Escribe tu pregunta aquí..." autocomplete="off">
+                <button id="micBtn" title="Hablar">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                </button>
                 <button id="sendBtn">
                     <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
                 </button>
@@ -572,6 +611,7 @@ HTML_TEMPLATE = r"""
             messages: document.getElementById('messages'),
             input: document.getElementById('questionInput'),
             btn: document.getElementById('sendBtn'),
+            micBtn: document.getElementById('micBtn'),
             groqBtn: document.getElementById('groqToggle'),
             groqText: document.getElementById('groqText'),
             totalNews: document.getElementById('totalNews'),
@@ -589,6 +629,20 @@ HTML_TEMPLATE = r"""
             const div = document.createElement('div');
             div.className = `msg ${type}`;
             div.innerHTML = html;
+            
+            if (type === 'bot') {
+                const ttsBtn = document.createElement('button');
+                ttsBtn.className = 'tts-btn';
+                ttsBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg> Escuchar';
+                
+                // Extraer texto limpio para TTS (sin HTML tags)
+                const cleanText = div.innerText.replace("Escuchar", "").trim(); 
+                ttsBtn.onclick = () => speakText(cleanText, ttsBtn);
+                
+                div.appendChild(document.createElement('br'));
+                div.appendChild(ttsBtn);
+            }
+            
             els.messages.appendChild(div);
             scrollToBottom();
             return div;
@@ -638,6 +692,136 @@ HTML_TEMPLATE = r"""
                 addMessage('❌ Error de conexión. Intenta de nuevo.', 'bot');
             } finally {
                 isProcessing = false;
+                els.input.disabled = false;
+                els.input.focus();
+            }
+        }
+
+        // --- AUDIO FUNCTIONS ---
+        let currentAudio = null;
+        let currentBtn = null;
+        let originalBtnHtml = '';
+
+        async function speakText(text, btn) {
+            // Stop existing audio
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+                
+                if (currentBtn) {
+                    currentBtn.innerHTML = originalBtnHtml;
+                    currentBtn.disabled = false;
+                }
+                
+                // If clicked same button, just stop
+                if (currentBtn === btn) {
+                    currentBtn = null;
+                    return;
+                }
+            }
+            
+            // Start new audio
+            currentBtn = btn;
+            originalBtnHtml = btn.innerHTML;
+            btn.innerHTML = '⏳ Cargando...';
+            btn.disabled = true;
+            
+            try {
+                const res = await fetch('/api/tts', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({text: text})
+                });
+                if (!res.ok) throw new Error('TTS Error');
+                
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const audio = new Audio(url);
+                
+                audio.onended = () => {
+                    if (currentBtn === btn) {
+                        btn.innerHTML = originalBtnHtml;
+                        btn.disabled = false;
+                        currentBtn = null;
+                        currentAudio = null;
+                    }
+                };
+                
+                currentAudio = audio;
+                // Change to Stop button
+                btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 6h12v12H6z"/></svg> Detener';
+                btn.disabled = false;
+                audio.play();
+            } catch (e) { 
+                console.error(e);
+                if (currentBtn === btn) {
+                    btn.innerHTML = originalBtnHtml;
+                    btn.disabled = false;
+                    currentBtn = null;
+                }
+                alert("Error al reproducir audio");
+            }
+        }
+
+        let mediaRecorder;
+        let audioChunks = [];
+
+        els.micBtn.addEventListener('click', async () => {
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                // Start recording
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = event => {
+                        audioChunks.push(event.data);
+                    };
+                    
+                    mediaRecorder.onstop = async () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        sendAudio(audioBlob);
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+                    
+                    mediaRecorder.start();
+                    els.micBtn.classList.add('recording');
+                } catch (e) {
+                    alert('Error al acceder al micrófono: ' + e.message);
+                }
+            } else {
+                // Stop recording
+                mediaRecorder.stop();
+                els.micBtn.classList.remove('recording');
+            }
+        });
+
+        async function sendAudio(blob) {
+            const formData = new FormData();
+            formData.append('audio', blob);
+            
+            const originalPlaceholder = els.input.placeholder;
+            els.input.placeholder = "Transcribiendo audio...";
+            els.input.disabled = true;
+            
+            try {
+                const res = await fetch('/api/stt', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.text) {
+                    els.input.value = data.text;
+                    // Opcional: enviar automáticamente
+                    // sendMessage(); 
+                } else if (data.error) {
+                    alert("Error: " + data.error);
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Error en la transcripción");
+            } finally {
+                els.input.placeholder = originalPlaceholder;
                 els.input.disabled = false;
                 els.input.focus();
             }
