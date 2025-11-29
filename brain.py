@@ -7,7 +7,7 @@ from typing import Dict, List
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from groq import Groq
-from config import GROQ_API_KEY, EMBEDDING_MODEL
+from config import GROQ_API_KEY, EMBEDDING_MODEL, DATA_STORE
 
 
 class SemanticSearch:
@@ -107,10 +107,21 @@ class GroqBrain:
         system = """Eres un asistente de noticias bolivianas.
 Reglas:
 - Responde SOLO con información de las noticias proporcionadas
-- NO inventes datos
-- MANTÉN los nombres propios exactos (ej: 'Edmand' no es 'Edmundo')
-- Sé conciso
-- Responde en español"""
+- EXCEPCIÓN: Si te preguntan por el clima, USA la información del clima proporcionada abajo.
+- NO inventes datos que no estén en las noticias o en la info del clima.
+- MANTÉN los nombres propios exactos.
+- Sé conciso.
+- Responde en español."""
+
+        # Inyectar clima si existe
+        weather = DATA_STORE.get('weather')
+        if weather:
+            system += f"\n\n--- INFORMACIÓN DEL CLIMA ACTUAL ---\n"
+            system += f"Ciudad: {weather['city']}\n"
+            system += f"Temperatura: {weather['temp']}°C\n"
+            system += f"Condición: {weather['condition']} {weather['emoji']}\n"
+            system += "------------------------------------\n"
+            system += "IMPORTANTE: Si el usuario pregunta por el clima, USA esta información. Si pregunta por otra ciudad, di que solo tienes datos de la ciudad mostrada."
 
         user = f"""NOTICIAS:
 {context_text}

@@ -172,8 +172,13 @@ HTML_TEMPLATE = r"""
             display: flex;
             flex-direction: column;
             height: 100%; /* Fill parent */
-            overflow: hidden; /* Contain children */
+            overflow-y: auto; /* Allow scrolling */
+            overflow-x: hidden;
         }
+        
+        .glass-panel::-webkit-scrollbar { width: 4px; }
+        .glass-panel::-webkit-scrollbar-track { background: transparent; }
+        .glass-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
 
         .brand {
             display: flex;
@@ -402,6 +407,37 @@ HTML_TEMPLATE = r"""
         }
         .tts-btn:hover { color: var(--primary); opacity: 1; }
 
+        /* --- WEATHER WIDGET --- */
+        .weather-widget {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border-radius: 15px;
+            padding: 15px;
+            color: white;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.2s;
+        }
+        .weather-widget:hover { transform: translateY(-2px); }
+        .weather-info { display: flex; flex-direction: column; width: 100%; }
+        .weather-header { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 5px; }
+        .weather-temp { font-size: 1.8rem; font-weight: 700; line-height: 1; margin: 5px 0; }
+        .weather-select { 
+            background: rgba(255,255,255,0.2); 
+            border: none; 
+            color: white; 
+            border-radius: 5px; 
+            padding: 2px 5px; 
+            font-size: 0.75rem; 
+            cursor: pointer;
+            outline: none;
+        }
+        .weather-select option { background: #333; color: white; }
+        .weather-icon { font-size: 2.2rem; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.2)); }
+
 
         /* --- RIGHT SIDEBAR (NEWS) --- */
         .news-list {
@@ -525,6 +561,29 @@ HTML_TEMPLATE = r"""
                         <span class="stat-value">MiniLM-L12</span>
                     </div>
                 </div>
+
+                {% if weather %}
+                <div class="weather-widget" id="weatherWidget">
+                    <div class="weather-info">
+                        <div class="weather-header">
+                            <select class="weather-select" onchange="changeCity(this.value)">
+                                <option value="Santa Cruz" {{ 'selected' if weather.city == 'Santa Cruz' else '' }}>Santa Cruz</option>
+                                <option value="La Paz" {{ 'selected' if weather.city == 'La Paz' else '' }}>La Paz</option>
+                                <option value="Cochabamba" {{ 'selected' if weather.city == 'Cochabamba' else '' }}>Cochabamba</option>
+                                <option value="Sucre" {{ 'selected' if weather.city == 'Sucre' else '' }}>Sucre</option>
+                                <option value="Tarija" {{ 'selected' if weather.city == 'Tarija' else '' }}>Tarija</option>
+                                <option value="Oruro" {{ 'selected' if weather.city == 'Oruro' else '' }}>Oruro</option>
+                                <option value="Potosi" {{ 'selected' if weather.city == 'Potosí' else '' }}>Potosí</option>
+                                <option value="Trinidad" {{ 'selected' if weather.city == 'Trinidad' else '' }}>Trinidad</option>
+                                <option value="Cobija" {{ 'selected' if weather.city == 'Cobija' else '' }}>Cobija</option>
+                            </select>
+                            <div class="weather-icon" id="weatherIcon">{{ weather.emoji }}</div>
+                        </div>
+                        <span class="weather-temp" id="weatherTemp">{{ weather.temp }}°C</span>
+                        <span style="font-size: 0.75rem;" id="weatherCond">{{ weather.condition }}</span>
+                    </div>
+                </div>
+                {% endif %}
 
                 <div style="flex:1"></div>
 
@@ -795,6 +854,34 @@ HTML_TEMPLATE = r"""
                 els.micBtn.classList.remove('recording');
             }
         });
+
+        // --- WEATHER FUNCTION ---
+        async function changeCity(city) {
+            console.log("🌦️ Cambiando ciudad a:", city); // Client side debug
+            const widget = document.getElementById('weatherWidget');
+            widget.style.opacity = '0.5';
+            
+            try {
+                const res = await fetch('/api/weather', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({city: city})
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    const w = data.weather;
+                    document.getElementById('weatherTemp').innerText = w.temp + '°C';
+                    document.getElementById('weatherCond').innerText = w.condition;
+                    document.getElementById('weatherIcon').innerText = w.emoji;
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Error actualizando clima');
+            } finally {
+                widget.style.opacity = '1';
+            }
+        }
 
         async function sendAudio(blob) {
             const formData = new FormData();

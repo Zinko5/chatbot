@@ -30,16 +30,24 @@ app.config['JSON_AS_ASCII'] = False
 # RUTAS
 # ================================================================================
 
+from weather import get_bolivia_weather
+
 @app.route('/')
 def home():
     """Página principal"""
+    # Obtener clima actualizado
+    weather = get_bolivia_weather()
+    if weather:
+        DATA_STORE['weather'] = weather
+        
     return render_template_string(
         HTML_TEMPLATE,
         headlines=DATA_STORE.get('titulares', [])[:20 ],
         total=len(DATA_STORE.get('titulares', [])),
         groq_enabled=bot.brain.enabled if bot.brain else False,
         groq_available=bot.brain.client is not None if bot.brain else False,
-        initialized=bot.initialized
+        initialized=bot.initialized,
+        weather=weather
     )
 
 @app.route('/api/chat', methods=['POST'])
@@ -219,6 +227,26 @@ def stt():
             
     except Exception as e:
         print(f"❌ Error en STT: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/weather', methods=['POST'])
+def update_weather():
+    """Actualizar clima por ciudad"""
+    try:
+        data = request.get_json()
+        city = data.get('city', 'Santa Cruz')
+        print(f"📡 API Weather solicitada para: {city}")
+        
+        weather = get_bolivia_weather(city)
+        if weather:
+            DATA_STORE['weather'] = weather
+            print(f"✅ Clima actualizado: {weather['city']} {weather['temp']}°C")
+            return jsonify({'success': True, 'weather': weather})
+        else:
+            return jsonify({'success': False, 'message': 'No se pudo obtener el clima'}), 400
+            
+    except Exception as e:
+        print(f"❌ Error actualizando clima: {e}")
         return jsonify({'error': str(e)}), 500
 
 # ================================================================================

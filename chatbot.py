@@ -149,6 +149,27 @@ class NewsChatBot:
             # 1. Buscar noticias relevantes
             relevant = self.search_engine.search(question, top_k=3)
             
+            # --- TRUCO: INYECTAR CLIMA COMO NOTICIA ---
+            # Si la pregunta es sobre clima, agregamos una "noticia falsa" con el dato real
+            # Esto obliga al LLM a leerlo como parte del contexto
+            keywords_clima = ['clima', 'tiempo', 'temperatura', 'calor', 'frío', 'lluvia', 'pronóstico']
+            if any(k in question.lower() for k in keywords_clima):
+                weather = DATA_STORE.get('weather')
+                print(f"🤖 Chatbot viendo clima: {weather}") # DEBUG
+                if weather:
+                    print("🌤️ Inyectando contexto de clima...")
+                    # Creamos una "noticia" sintética
+                    weather_news = {
+                        'titulo': f"Reporte del Clima Actual en {weather['city']}",
+                        'url': 'https://www.accuweather.com/es/bo/bolivia-weather',
+                        'resumen': f"El clima actual en {weather['city']} presenta una temperatura de {weather['temp']}°C. La condición es {weather['condition']} {weather['emoji']}.",
+                        'contenido': f"Informe meteorológico en tiempo real para {weather['city']}. Temperatura actual: {weather['temp']} grados Celsius. Condición del cielo: {weather['condition']}. Se recomienda tomar previsiones según este reporte actualizado.",
+                        'sentimiento': 'Neutral',
+                        'score': 0.99 # Score alto para que aparezca primero
+                    }
+                    # Insertamos al principio
+                    relevant.insert(0, weather_news)
+            
             if not relevant:
                 return ("🔍 No encontré noticias relacionadas con tu pregunta.\n\n"
                        "💡 **Sugerencias:**\n"
