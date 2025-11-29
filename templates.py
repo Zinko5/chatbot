@@ -535,6 +535,42 @@ HTML_TEMPLATE = r"""
         </div>
     </div>
 
+    <!-- NAME MODAL -->
+    <div id="nameModal" class="hidden">
+        <div class="glass-panel" style="max-width: 600px; width: 90%; max-height: 600px; height: 90%; padding: 40px 50px; text-align: center; position: relative; z-index: 10001; background: rgba(15, 23, 42, 0.95); border: 1px solid var(--primary);">
+            <div style="font-size: 3rem; margin-bottom: 10px;">👋</div>
+            <h2 style="margin-bottom: 10px; font-size: 1.8rem;">¡Bienvenido!</h2>
+            <p style="color: var(--text-muted); margin-bottom: 30px; font-size: 1.1rem;">Para ofrecerte una mejor experiencia, ¿cómo te gustaría que te llame?</p>
+            
+            <div style="display: flex; gap: 15px; justify-content: center; max-width: 400px; margin: 0 auto;">
+                <input type="text" id="nameInput" placeholder="Tu nombre..." style="flex: 1; padding: 15px; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.05); color: white; font-size: 1.1rem; text-align: center;">
+                
+                <button onclick="saveName()" style="padding: 15px 30px; border-radius: 10px; border: none; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; font-weight: bold; cursor: pointer; font-size: 1rem; transition: transform 0.2s; white-space: nowrap;">
+                    Comenzar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        #nameModal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+        #nameModal.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+
     <div class="app-container">
         <!-- LEFT SIDEBAR -->
         <aside class="sidebar">
@@ -617,7 +653,7 @@ HTML_TEMPLATE = r"""
         <main class="chat-container glass-panel">
             <div class="messages-area" id="messages">
                 <div class="msg bot">
-                    👋 <strong>¡Hola! Soy tu asistente de noticias.</strong><br><br>
+                    👋 <strong id="greetingText">¡Hola{{ ', ' + user_name if user_name else '' }}! Soy tu asistente de noticias.</strong><br><br>
                     He leído y analizado <strong id="initialNewsCount">{{ total }} noticias</strong> de El Deber para responder tus preguntas.<br><br>
                     ✨ <em>Prueba preguntando:</em><br>
                     • "¿Qué pasó con el censo?"<br>
@@ -643,7 +679,12 @@ HTML_TEMPLATE = r"""
 
         <!-- RIGHT SIDEBAR -->
         <aside class="news-sidebar glass-panel">
-            <h3 style="margin-bottom:15px; font-size:1rem; color:var(--text-main);">🔥 Titulares Recientes</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="font-size:1rem; color:var(--text-main);">🔥 Titulares Recientes</h3>
+                <button id="logoutBtn" onclick="logout()" title="Cambiar usuario" style="display: {{ 'inline-block' if user_name else 'none' }}; background: transparent; border: 1px solid var(--glass-border); color: var(--text-muted); padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; transition: all 0.2s;">
+                    👤 Salir
+                </button>
+            </div>
             <ul class="news-list" id="newsList">
                 {% for h in headlines %}
                 <li class="news-item" onclick="askAbout('{{ h.titulo|replace("'", "\\'") }}')">
@@ -660,6 +701,49 @@ HTML_TEMPLATE = r"""
         let groqEnabled = {{ 'true' if groq_enabled else 'false' }};
         let initialized = {{ 'true' if initialized else 'false' }};
         let uiRefreshed = false;
+        let userName = "{{ user_name if user_name else '' }}";
+
+        // Check name on load
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!userName) {
+                document.getElementById('nameModal').classList.remove('hidden');
+            }
+        });
+
+        async function saveName() {
+            const input = document.getElementById('nameInput');
+            const name = input.value.trim();
+            if (!name) return;
+
+            try {
+                const res = await fetch('/api/set_name', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name: name})
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    userName = data.name;
+                    document.getElementById('nameModal').classList.add('hidden');
+                    document.getElementById('greetingText').innerText = `¡Hola, ${userName}! Soy tu asistente de noticias.`;
+                    document.getElementById('logoutBtn').style.display = 'inline-block';
+                }
+            } catch (e) {
+                console.error("Error saving name:", e);
+                alert("Error al guardar el nombre. Intenta de nuevo.");
+            }
+        }
+
+        async function logout() {
+            if (!confirm('¿Estás seguro de que quieres cerrar sesión y cambiar de nombre?')) return;
+            try {
+                await fetch('/api/logout', {method: 'POST'});
+                window.location.reload();
+            } catch (e) {
+                console.error("Error logging out:", e);
+            }
+        }
         
         // Elementos DOM
         const els = {

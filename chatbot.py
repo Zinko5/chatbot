@@ -30,6 +30,7 @@ class NewsChatBot:
         self.initialized = False
         self.initializing = False
         self.histories = {} # Memoria de conversación por sesión: {session_id: [msgs]}
+        self.user_name = None
     
     def initialize_async(self):
         """Inicializa el bot en un thread separado (no bloquea el servidor)"""
@@ -220,7 +221,8 @@ class NewsChatBot:
                 relevant, 
                 session_history, 
                 previous_context=last_context if not using_stored_context else None,
-                global_stats=global_stats
+                global_stats=global_stats,
+                user_name=self.user_name
             )
             
             # Actualizar historial
@@ -264,6 +266,14 @@ class NewsChatBot:
         except Exception as e:
             print(f"❌ Error procesando pregunta: {e}")
             return f"❌ Error al procesar la pregunta: {str(e)}"
+
+    def set_user_name(self, name: str):
+        """Establece el nombre del usuario (en memoria)"""
+        self.user_name = name
+
+    def reset_user_name(self):
+        """Borra el nombre del usuario"""
+        self.user_name = None
 
 
 # Instancia global del bot

@@ -47,8 +47,29 @@ def home():
         groq_enabled=bot.brain.enabled if bot.brain else False,
         groq_available=bot.brain.client is not None if bot.brain else False,
         initialized=bot.initialized,
-        weather=weather
+        weather=weather,
+        user_name=bot.user_name
     )
+
+@app.route('/api/set_name', methods=['POST'])
+def set_name():
+    """Guardar nombre del usuario"""
+    try:
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        if not name:
+            return jsonify({'success': False, 'message': 'Nombre vacío'}), 400
+            
+        bot.set_user_name(name)
+        return jsonify({'success': True, 'name': name})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    """Cerrar sesión (olvidar nombre)"""
+    bot.reset_user_name()
+    return jsonify({'success': True})
 
 @app.route('/api/chat', methods=['POST'])
 def chat():

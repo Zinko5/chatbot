@@ -24,11 +24,11 @@ if not TELEGRAM_BOT_TOKEN:
 # Configuración de secciones a rastrear
 # Formato: "URL": cantidad_de_paginas
 SECCIONES_CONFIG = {
-    "https://eldeber.com.bo/pais": 1,
-    # "https://eldeber.com.bo/economia": 3,
-    # "https://eldeber.com.bo/mundo": 3,
-    # "https://eldeber.com.bo/educacion-y-sociedad": 3,
-    # "https://eldeber.com.bo/deportes": 3
+    "https://eldeber.com.bo/pais": 3,
+    "https://eldeber.com.bo/economia": 3,
+    "https://eldeber.com.bo/mundo": 3,
+    "https://eldeber.com.bo/educacion-y-sociedad": 3,
+    "https://eldeber.com.bo/deportes": 3
 }
 
 HEADERS = {

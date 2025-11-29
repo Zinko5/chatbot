@@ -37,3 +37,6 @@ Thumbs.db
 
 # Audio Cache
 audio_cache/
+
+# User Config
+user_config.json

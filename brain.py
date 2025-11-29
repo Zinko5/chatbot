@@ -92,7 +92,7 @@ class GroqBrain:
         
         self.model = "llama-3.1-8b-instant"
     
-    def generate(self, question: str, context: List[Dict], history: List[Dict] = None, previous_context: List[Dict] = None, global_stats: Dict = None) -> str:
+    def generate(self, question: str, context: List[Dict], history: List[Dict] = None, previous_context: List[Dict] = None, global_stats: Dict = None, user_name: str = None) -> str:
         """Genera respuesta basada en contexto y memoria de conversación"""
         
         if not self.enabled:
@@ -118,7 +118,8 @@ class GroqBrain:
                 prev_context_text += f"Título: {n['titulo']}\n"
                 prev_context_text += f"Contenido: {n.get('contenido', '')[:800]}\n\n"
 
-        system = """Eres un asistente de noticias bolivianas inteligente y servicial.
+        system = f"""Eres un asistente de noticias bolivianas inteligente y servicial.
+{f'El usuario se llama {user_name}. DIRÍGETE A ÉL SIEMPRE POR SU NOMBRE de forma natural y cortés.' if user_name else ''}
 Reglas:
 1. Tienes acceso a DOS fuentes de información:
    - RESULTADOS DE BÚSQUEDA ACTUAL: Noticias encontradas para la pregunta actual.
