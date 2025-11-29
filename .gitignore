@@ -34,3 +34,6 @@ Thumbs.db
 # diapositivas
 *.typ
 *.pdf
+
+# Audio Cache
+audio_cache/

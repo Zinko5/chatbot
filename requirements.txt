@@ -45,5 +45,6 @@ python-telegram-bot==20.7
 
 # Audio
 gTTS==2.5.1
+edge-tts==6.1.9
 SpeechRecognition==3.10.1
 pydub==0.25.1

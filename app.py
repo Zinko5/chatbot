@@ -9,11 +9,18 @@ from templates import HTML_TEMPLATE
 import threading
 from telegram_bot import start_telegram_bot
 from gtts import gTTS
+import edge_tts
 import speech_recognition as sr
 from pydub import AudioSegment
 import io
 import os
 import uuid
+import hashlib
+import asyncio
+import atexit
+import signal
+import sys
+import subprocess
 
 app = Flask(__name__)
 app.secret_key = 'newsbot-2024-secret'
@@ -129,7 +136,7 @@ def refresh():
 
 @app.route('/api/tts', methods=['POST'])
 def tts():
-    """Texto a voz"""
+    """Texto a voz (Optimizado con Edge TTS + Caché)"""
     try:
         data = request.get_json()
         text = data.get('text', '')
@@ -137,24 +144,40 @@ def tts():
         if not text:
             return jsonify({'error': 'No text provided'}), 400
             
-        # Generar audio
-        tts = gTTS(text=text, lang='es')
+        # 1. Verificar Caché
+        # Creamos un hash del texto para usarlo como nombre de archivo
+        text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()
+        cache_dir = 'audio_cache'
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
+            
+        filename = f"{cache_dir}/{text_hash}.mp3"
         
-        # Guardar en memoria
-        mp3_fp = io.BytesIO()
-        tts.write_to_fp(mp3_fp)
-        mp3_fp.seek(0)
+        # Si ya existe, lo devolvemos directamente (Instantáneo)
+        if os.path.exists(filename):
+            return send_file(filename, mimetype='audio/mp3')
+            
+        # 2. Generar con Edge TTS (Más rápido y natural)
+        async def generate_audio():
+            communicate = edge_tts.Communicate(text, "es-ES-AlvaroNeural")
+            await communicate.save(filename)
+            
+        asyncio.run(generate_audio())
         
-        return send_file(
-            mp3_fp,
-            mimetype='audio/mp3',
-            as_attachment=False,
-            download_name='response.mp3'
-        )
+        return send_file(filename, mimetype='audio/mp3')
         
     except Exception as e:
         print(f"❌ Error en TTS: {e}")
-        return jsonify({'error': str(e)}), 500
+        # Fallback a gTTS si falla Edge
+        try:
+            print("⚠️ Usando Fallback gTTS...")
+            tts = gTTS(text=text, lang='es')
+            mp3_fp = io.BytesIO()
+            tts.write_to_fp(mp3_fp)
+            mp3_fp.seek(0)
+            return send_file(mp3_fp, mimetype='audio/mp3', download_name='response.mp3')
+        except Exception as e2:
+            return jsonify({'error': str(e2)}), 500
 
 @app.route('/api/stt', methods=['POST'])
 def stt():
@@ -216,9 +239,26 @@ if __name__ == '__main__':
     print("   Las noticias se cargarán mientras usas el chat.\n")
     
     bot.initialize_async()
-    # Iniciar bot de Telegram como proceso independiente
-    import subprocess, sys
-    subprocess.Popen([sys.executable, "telegram_bot.py"])
+    # Iniciar bot de Telegram como proceso independiente con limpieza
+    telegram_process = subprocess.Popen([sys.executable, "telegram_bot.py"])
+
+    def cleanup():
+        if telegram_process:
+            print("\n🛑 Deteniendo bot de Telegram...")
+            telegram_process.terminate()
+            try:
+                telegram_process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                telegram_process.kill()
+            print("✅ Bot de Telegram detenido.")
+
+    atexit.register(cleanup)
+    
+    # Manejar Ctrl+C explícitamente para asegurar que atexit corra
+    def signal_handler(sig, frame):
+        sys.exit(0)
+        
+    signal.signal(signal.SIGINT, signal_handler)
 
     print("=" * 60)
     print("🌐 SERVIDOR INICIADO")
