@@ -271,6 +271,7 @@ def buscar_noticias_neutrales(noticias: List[Dict]) -> List[Dict]:
     return [n for n in noticias if n.get('sentimiento') == 'Neutral']
 
 
+
 def mostrar_resumen_sentimientos(noticias: List[Dict]) -> str:
     """
     Genera un resumen textual de los sentimientos.
@@ -296,6 +297,40 @@ def mostrar_resumen_sentimientos(noticias: List[Dict]) -> str:
     resumen += f"😞 **Negativas:** {conteo['Negativo']} ({(conteo['Negativo']/total)*100:.1f}%)\n"
     
     return resumen
+
+
+def calcular_estadisticas_sentimientos(noticias: List[Dict]) -> Dict:
+    """
+    Calcula estadísticas detalladas de sentimientos.
+    
+    Returns:
+        Diccionario con conteos y porcentajes
+    """
+    if not noticias:
+        return {
+            'total': 0,
+            'conteo': {'Positivo': 0, 'Negativo': 0, 'Neutral': 0},
+            'porcentajes': {'Positivo': 0.0, 'Negativo': 0.0, 'Neutral': 0.0}
+        }
+    
+    total = len(noticias)
+    conteo = {'Positivo': 0, 'Negativo': 0, 'Neutral': 0}
+    
+    for n in noticias:
+        s = n.get('sentimiento', 'Neutral')
+        if s in conteo:
+            conteo[s] += 1
+        else:
+            conteo['Neutral'] += 1
+            
+    return {
+        'total': total,
+        'conteo': conteo,
+        'porcentajes': {
+            k: (v / total * 100) for k, v in conteo.items()
+        }
+    }
+
 
 
 # ================================================================================

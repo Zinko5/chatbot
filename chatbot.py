@@ -15,7 +15,8 @@ from sentiment import (
     buscar_noticias_positivas,
     buscar_noticias_negativas,
     buscar_noticias_neutrales,
-    mostrar_resumen_sentimientos
+    mostrar_resumen_sentimientos,
+    calcular_estadisticas_sentimientos
 )
 
 
@@ -210,7 +211,17 @@ class NewsChatBot:
             # 2. Generar respuesta con IA
             # Si usamos el contexto guardado, lo pasamos como 'context' (actual) para que el prompt lo entienda como foco principal.
             # No es necesario pasar 'previous_context' si ya estamos forzando el foco.
-            response = self.brain.generate(question, relevant, session_history, previous_context=last_context if not using_stored_context else None)
+            
+            # Calcular estadísticas globales para el "panorama"
+            global_stats = calcular_estadisticas_sentimientos(self.noticias)
+            
+            response = self.brain.generate(
+                question, 
+                relevant, 
+                session_history, 
+                previous_context=last_context if not using_stored_context else None,
+                global_stats=global_stats
+            )
             
             # Actualizar historial
             session_history.append({"role": "user", "content": question})

@@ -92,7 +92,7 @@ class GroqBrain:
         
         self.model = "llama-3.1-8b-instant"
     
-    def generate(self, question: str, context: List[Dict], history: List[Dict] = None, previous_context: List[Dict] = None) -> str:
+    def generate(self, question: str, context: List[Dict], history: List[Dict] = None, previous_context: List[Dict] = None, global_stats: Dict = None) -> str:
         """Genera respuesta basada en contexto y memoria de conversación"""
         
         if not self.enabled:
@@ -131,6 +131,17 @@ Reglas:
 7. Sé conversacional y fluido.
 8. Al final, pregunta si desea profundizar.
 9. Responde en español."""
+
+        # Inyectar estadísticas globales si existen
+        if global_stats:
+            system += "\n\n--- PANORAMA GENERAL DE NOTICIAS (ESTADÍSTICAS) ---\n"
+            system += f"Total noticias analizadas: {global_stats['total']}\n"
+            system += "Distribución de sentimientos:\n"
+            for sent, pct in global_stats['porcentajes'].items():
+                emoji = {'Positivo': '😊', 'Neutral': '😐', 'Negativo': '😞'}.get(sent, '')
+                system += f"- {sent} {emoji}: {pct:.1f}% ({global_stats['conteo'][sent]} noticias)\n"
+            system += "Usa esta información si el usuario pregunta por el 'panorama', 'porcentajes' o 'cómo se ven las noticias en general'.\n"
+            system += "---------------------------------------------------\n"
 
         # Inyectar clima si existe
         weather = DATA_STORE.get('weather')
