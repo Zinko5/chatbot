@@ -64,8 +64,11 @@ def chat():
         if not question:
             return jsonify({'answer': 'Por favor, escribe una pregunta.'})
         
+        # Obtener ID de sesión (para mantener conversación)
+        session_id = request.headers.get('X-Session-ID') or request.remote_addr or 'default'
+        
         # Procesar pregunta
-        answer = bot.answer(question)
+        answer = bot.answer(question, session_id=str(session_id))
         
         return jsonify({'answer': answer})
     

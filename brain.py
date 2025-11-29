@@ -92,26 +92,45 @@ class GroqBrain:
         
         self.model = "llama-3.1-8b-instant"
     
-    def generate(self, question: str, context: List[Dict]) -> str:
-        """Genera respuesta basada en contexto"""
+    def generate(self, question: str, context: List[Dict], history: List[Dict] = None, previous_context: List[Dict] = None) -> str:
+        """Genera respuesta basada en contexto y memoria de conversación"""
         
         if not self.enabled:
             return self._basic_response(context)
         
-        context_text = ""
-        for i, n in enumerate(context[:3], 1):
-            context_text += f"\nNOTICIA {i}:\n"
-            context_text += f"Título: {n['titulo']}\n"
-            context_text += f"Contenido: {n.get('contenido', '')[:500]}\n"
-        
-        system = """Eres un asistente de noticias bolivianas.
+        # Formatear contexto actual
+        current_context_text = ""
+        if context:
+            current_context_text = "--- RESULTADOS DE BÚSQUEDA ACTUAL ---\n"
+            for i, n in enumerate(context[:3], 1):
+                current_context_text += f"NOTICIA ACTUAL {i}:\n"
+                current_context_text += f"Título: {n['titulo']}\n"
+                current_context_text += f"Contenido: {n.get('contenido', '')[:800]}\n\n"
+        else:
+            current_context_text = "--- NO SE ENCONTRARON NOTICIAS NUEVAS RELEVANTES ---\n"
+
+        # Formatear contexto anterior (si existe)
+        prev_context_text = ""
+        if previous_context:
+            prev_context_text = "--- NOTICIAS VISTAS ANTERIORMENTE (Contexto de la conversación) ---\n"
+            for i, n in enumerate(previous_context[:3], 1):
+                prev_context_text += f"NOTICIA PREVIA {i}:\n"
+                prev_context_text += f"Título: {n['titulo']}\n"
+                prev_context_text += f"Contenido: {n.get('contenido', '')[:800]}\n\n"
+
+        system = """Eres un asistente de noticias bolivianas inteligente y servicial.
 Reglas:
-- Responde SOLO con información de las noticias proporcionadas
-- EXCEPCIÓN: Si te preguntan por el clima, USA la información del clima proporcionada abajo.
-- NO inventes datos que no estén en las noticias o en la info del clima.
-- MANTÉN los nombres propios exactos.
-- Sé conciso.
-- Responde en español."""
+1. Tienes acceso a DOS fuentes de información:
+   - RESULTADOS DE BÚSQUEDA ACTUAL: Noticias encontradas para la pregunta actual.
+   - NOTICIAS VISTAS ANTERIORMENTE: Noticias de las que estabas hablando antes.
+2. Si el usuario pregunta "qué pasó con la noticia 2" o "profundiza en la primera", REFIÉRETE a las "NOTICIAS VISTAS ANTERIORMENTE".
+3. Si el usuario cambia de tema, usa los "RESULTADOS DE BÚSQUEDA ACTUAL".
+4. Responde SOLO con información proporcionada.
+5. EXCEPCIÓN: Si te preguntan por el clima, USA la información del clima.
+6. MANTÉN los nombres propios exactos.
+7. Sé conversacional y fluido.
+8. Al final, pregunta si desea profundizar.
+9. Responde en español."""
 
         # Inyectar clima si existe
         weather = DATA_STORE.get('weather')
@@ -121,24 +140,32 @@ Reglas:
             system += f"Temperatura: {weather['temp']}°C\n"
             system += f"Condición: {weather['condition']} {weather['emoji']}\n"
             system += "------------------------------------\n"
-            system += "IMPORTANTE: Si el usuario pregunta por el clima, USA esta información. Si pregunta por otra ciudad, di que solo tienes datos de la ciudad mostrada."
 
-        user = f"""NOTICIAS:
-{context_text}
+        # Construir mensajes con historial
+        messages = [{"role": "system", "content": system}]
+        
+        # Agregar historial (últimos 4 mensajes para contexto inmediato)
+        if history:
+            for msg in history[-4:]:
+                messages.append(msg)
 
-PREGUNTA: {question}
+        # Mensaje actual con contexto
+        user_content = f"""{prev_context_text}
 
-Responde basándote solo en las noticias. Respeta los nombres propios y no inventes datos."""
+{current_context_text}
+
+PREGUNTA DEL USUARIO: {question}
+
+Instrucción: Analiza si la pregunta se refiere a las noticias anteriores o a las nuevas. Responde acorde."""
+
+        messages.append({"role": "user", "content": user_content})
 
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user}
-                ],
-                temperature=0.3,
-                max_tokens=500
+                messages=messages,
+                temperature=0.5,
+                max_tokens=800 # Aumentamos tokens para respuestas profundas
             )
             return response.choices[0].message.content
         except Exception as e:

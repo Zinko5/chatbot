@@ -3,6 +3,7 @@
 # ================================================================================
 
 import threading
+import re
 from typing import List, Dict
 from config import DATA_STORE
 from scraper import extraer_todas_las_noticias
@@ -27,6 +28,7 @@ class NewsChatBot:
         self.noticias = []
         self.initialized = False
         self.initializing = False
+        self.histories = {} # Memoria de conversación por sesión: {session_id: [msgs]}
     
     def initialize_async(self):
         """Inicializa el bot en un thread separado (no bloquea el servidor)"""
@@ -86,7 +88,18 @@ class NewsChatBot:
         finally:
             self.initializing = False
     
-    def answer(self, question: str) -> str:
+    def _is_follow_up(self, text: str) -> bool:
+        """Detecta si la pregunta es un seguimiento de la anterior"""
+        text = text.lower()
+        patterns = [
+            r"(sobre|en|de) la (\d+|uno|dos|tres|primera|segunda|tercera)",
+            r"(noticia|nota|artículo|articulo) (\d+|uno|dos|tres|primera|segunda|tercera)",
+            r"\b(profundiza|profundizar|amplia|ampliar|detalles|más sobre|mas sobre|cuéntame más|cuentame mas)\b",
+            r"\b(qué pasó con|que paso con|y la|y el)\b"
+        ]
+        return any(re.search(p, text) for p in patterns)
+
+    def answer(self, question: str, session_id: str = 'default') -> str:
         """Procesa una pregunta y devuelve respuesta"""
         
         # Verificar estado
@@ -100,7 +113,7 @@ class NewsChatBot:
             return "Por favor, escribe una pregunta."
         
         question = question.strip()
-        print(f"\n💬 Pregunta: {question[:50]}...")
+        print(f"\n💬 Pregunta ({session_id}): {question[:50]}...")
         
         try:
             # ====================================================================
@@ -143,11 +156,25 @@ class NewsChatBot:
                 return respuesta
             
             # ====================================================================
-            # BÚSQUEDA SEMÁNTICA NORMAL
+            # BÚSQUEDA SEMÁNTICA CON MEMORIA DE CONTEXTO
             # ====================================================================
             
-            # 1. Buscar noticias relevantes
-            relevant = self.search_engine.search(question, top_k=3)
+            # Obtener estado de la sesión
+            session_state = self.histories.get(session_id, {'history': [], 'last_context': []})
+            session_history = session_state['history']
+            last_context = session_state.get('last_context', [])
+            
+            relevant = []
+            using_stored_context = False
+            
+            # 1. Verificar si es una pregunta de seguimiento (para usar contexto anterior)
+            if last_context and self._is_follow_up(question):
+                print("🧠 Detectado seguimiento: Usando contexto anterior.")
+                relevant = last_context
+                using_stored_context = True
+            else:
+                # 2. Si no es seguimiento, buscar noticias nuevas
+                relevant = self.search_engine.search(question, top_k=3)
             
             # --- TRUCO: INYECTAR CLIMA COMO NOTICIA ---
             # Si la pregunta es sobre clima, agregamos una "noticia falsa" con el dato real
@@ -177,8 +204,30 @@ class NewsChatBot:
                        "• Pregunta sobre temas de actualidad boliviana\n"
                        "• Prueba buscar por sentimiento: 'noticias positivas', 'noticias negativas'")
             
+            # Obtener estado de la sesión (ya lo tenemos arriba, pero necesitamos actualizarlo)
+            # session_history y last_context ya fueron extraídos
+            
             # 2. Generar respuesta con IA
-            response = self.brain.generate(question, relevant)
+            # Si usamos el contexto guardado, lo pasamos como 'context' (actual) para que el prompt lo entienda como foco principal.
+            # No es necesario pasar 'previous_context' si ya estamos forzando el foco.
+            response = self.brain.generate(question, relevant, session_history, previous_context=last_context if not using_stored_context else None)
+            
+            # Actualizar historial
+            session_history.append({"role": "user", "content": question})
+            session_history.append({"role": "assistant", "content": response})
+            
+            # Limitar historial (últimos 10 mensajes)
+            if len(session_history) > 10:
+                session_history = session_history[-10:]
+            
+            # Guardar estado actualizado
+            # Si usamos contexto guardado, lo mantenemos. Si buscamos nuevo, guardamos el nuevo.
+            new_context_to_save = relevant if relevant else last_context
+            
+            self.histories[session_id] = {
+                'history': session_history,
+                'last_context': new_context_to_save
+            }
             
             # 3. Agregar fuentes CON SENTIMIENTOS
             sources = "\n\n---\n📚 **Fuentes:**\n"

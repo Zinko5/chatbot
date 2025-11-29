@@ -43,7 +43,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Obtener respuesta del chatbot (esto es síncrono en chatbot.py, así que lo ejecutamos direct)
     # Idealmente chatbot.py debería ser async, pero para este MVP lo llamamos así.
     # Si tarda mucho, podría bloquear el event loop de telegram, pero por ahora está bien.
-    response = bot.answer(user_text)
+    session_id = str(update.effective_chat.id)
+    response = bot.answer(user_text, session_id=session_id)
     
     # Telegram tiene límite de 4096 caracteres. Si es muy largo, cortar o dividir.
     # Por simplicidad, enviamos todo (bot.answer suele ser breve)
